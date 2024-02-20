@@ -1,0 +1,6 @@
+test_dbt/logs
+test_dbt/target
+test_dbt/.user.yml
+test_dbt/profiles.yml
+test_snowflake/.env
+.DS_Store
