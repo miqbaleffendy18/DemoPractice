@@ -1,5 +1,7 @@
 import snowflake.connector
-from snowflake.connector.pandas_tools import write_pandas
+# from snowflake.connector.pandas_tools import write_pandas
+from sqlalchemy import create_engine
+from snowflake.sqlalchemy import URL
 from dotenv import dotenv_values
 import pandas as pd
 
@@ -23,84 +25,77 @@ def create_sql_statement(schema_name, table_name, df):
     
     return sql_statement 
 
-def check_if_table_exists(cursor, schema_name, table_name):
+def check_if_table_exists(connection, schema_name, table_name):
     
     table_name = table_name.upper()
     schema_name = schema_name.upper()
-    cursor.execute(
+    result_check = connection.execute(
         f"""
         SELECT COUNT(*) FROM information_schema.tables 
         WHERE table_schema = '{schema_name}'
         AND table_name = '{table_name}'
         """
     )
-    
-    if cursor.fetchone()[0] == 1:
-        result_check = 1
-    else: 
-        result_check = 0
+
+    result_check = result_check.fetchone()[0]
     
     return result_check
 
 def upload_csv_to_snowflake(env_file, path, schema_name, table_name):
     
     snowflake_cred = dotenv_values(env_file)
-    snowflake_conn = snowflake.connector.connect(
-        user = snowflake_cred['SNOWFLAKE_USERNAME'],
-        password = snowflake_cred['SNOWFLAKE_PASSWORD'],
-        account = snowflake_cred['SNOWFLAKE_ACCOUNT'],
-        warehouse = snowflake_cred['SNOWFLAKE_WAREHOUSE'],
-        database = snowflake_cred['SNOWFLAKE_DATABASE']
-    )
     
-    cur = snowflake_conn.cursor()
+    snowflake_engine = create_engine(
+        URL(
+            user = snowflake_cred['SNOWFLAKE_USERNAME'],
+            password = snowflake_cred['SNOWFLAKE_PASSWORD'],
+            account = snowflake_cred['SNOWFLAKE_ACCOUNT'],
+            warehouse = snowflake_cred['SNOWFLAKE_WAREHOUSE'],
+            database = snowflake_cred['SNOWFLAKE_DATABASE'],
+            role = snowflake_cred['SNOWFLAKE_ROLE']
+        )
+    )
+
+    conn = snowflake_engine.connect()
     
     df = pd.read_csv(path, sep=';')
     key_column = df.columns[0]
     create_table_statement = create_sql_statement(schema_name = schema_name, table_name = table_name, df = df)
     
     try:
-        cur.execute('USE ROLE ACCOUNTADMIN')
-        cur.execute('USE DATABASE DBT_LEARN')
-        cur.execute(f'USE SCHEMA {schema_name.upper()}')
-        cur.execute(f'DROP TABLE IF EXISTS {schema_name}.{table_name}_staging')
-        cur.execute(create_table_statement)
+        conn.execute(f'USE SCHEMA {schema_name.upper()}')
+        conn.execute(f'DROP TABLE IF EXISTS {schema_name}.{table_name}_staging')
+        conn.execute(create_table_statement)
         
-        for index, row in df.iterrows():
-            
-            values = ', '.join([f"'{value}'" if isinstance(value, str) else str(value) for value in row])
-            
-            cur.execute(
-                f"""
-                INSERT INTO {schema_name}.{table_name}_staging
-                VALUES
-                ({values})
-                """
-            )
+        df.to_sql(
+            name = table_name + '_staging',
+            con = snowflake_engine,
+            schema = schema_name,
+            index = False, 
+            if_exists = 'append'
+        )
         
-        # write_pandas(snowflake_conn, df, table_name = table_name)
-        
-        result_check = check_if_table_exists(cursor = cur, schema_name = schema_name, table_name = table_name)
+        result_check = check_if_table_exists(connection = conn, schema_name = schema_name, table_name = table_name)
         
         if result_check == 1:
-            cur.execute(f'DELETE FROM {schema_name}.{table_name} WHERE {key_column} IN (SELECT {key_column} FROM {schema_name}.{table_name}_staging)')
-            cur.execute(f'INSERT INTO {schema_name}.{table_name} SELECT *, CURRENT_TIMESTAMP AS etl_date FROM {schema_name}.{table_name}_staging')
-            cur.execute(f'DROP TABLE IF EXISTS {schema_name}.{table_name}_staging')
+            conn.execute(f'DELETE FROM {schema_name}.{table_name} WHERE {key_column} IN (SELECT {key_column} FROM {schema_name}.{table_name}_staging)')
+            conn.execute(f'INSERT INTO {schema_name}.{table_name} SELECT *, CURRENT_TIMESTAMP AS etl_date FROM {schema_name}.{table_name}_staging')
+            conn.execute(f'DROP TABLE IF EXISTS {schema_name}.{table_name}_staging')
         
         else:
-            cur.execute(f'ALTER TABLE {schema_name}.{table_name}_staging RENAME TO {table_name}')
-            cur.execute(f'ALTER TABLE {schema_name}.{table_name} ADD COLUMN etl_date TIMESTAMP WITHOUT TIME ZONE')
-            cur.execute(f'UPDATE {schema_name}.{table_name} SET etl_date = current_timestamp')
+            conn.execute(f'ALTER TABLE {schema_name}.{table_name}_staging RENAME TO {table_name}')
+            conn.execute(f'ALTER TABLE {schema_name}.{table_name} ADD COLUMN etl_date TIMESTAMP WITHOUT TIME ZONE')
+            conn.execute(f'UPDATE {schema_name}.{table_name} SET etl_date = current_timestamp')
     
     except Exception as e:
-        cur.close()
-        snowflake_conn.close()
-        print(f"Error occurred: {str(e)}")
+        conn.close()
+        snowflake_engine.dispose()
+        print(f"Error occonnred: {str(e)}")
     
     finally:
-        cur.close()
+        conn.close()
     
-    snowflake_conn.close()
+    snowflake_engine.dispose()
 
 if __name__ == '__main__':
 
