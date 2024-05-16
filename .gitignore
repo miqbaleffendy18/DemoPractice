@@ -3,4 +3,8 @@ test_dbt/target
 test_dbt/.user.yml
 test_dbt/profiles.yml
 test_snowflake/.env
+venv
+data/
 .DS_Store
+*.json
+*.log
