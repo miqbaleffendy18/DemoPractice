@@ -1,0 +1,49 @@
+1. Register variable ADVERTISED_HOST_NAME 
+export ADVERTISED_HOST_NAME = <Host IP Address>
+
+Open Terminal and run:
+ifconfig
+Look for the line labeled inet within the en0 or en1 section, which is typically the Wi-Fi or Ethernet adapter. Example:
+inet 192.168.1.100
+
+2. Jalankan docker compose up -d
+
+3. Masuk ke DB MySQL menggunakan akun root, lalu jalankan query grant permission untuk akun yang akan dipakai sebagai connector
+GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'mysqluser'@'%';
+FLUSH PRIVILEGES;
+
+Untuk ensure permission sudah diberikan, jalankan query berikut
+SHOW GRANTS FOR 'mysqluser'@'%';
+
+4. Deploy connector, jalankan command berikut
+curl -i -X POST -H "Accept:application/json" -H "Content-Type:application/json" \
+    localhost:8083/connectors/ -d '{
+        "name": "mysql-connector",
+        "config": {
+            "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+            "tasks.max": "1",  
+            "database.hostname": "mysql",  
+            "database.port": "3306",
+            "database.user": "mysqluser",
+            "database.password": "mysqlpw",
+            "database.server.id": "184054",  
+            "topic.prefix": "mysqldb",  
+            "database.include.list": "inventory",  
+            "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",  
+            "schema.history.internal.kafka.topic": "schema-changes.inventory"
+        }
+    }'
+
+Untuk ensure connection sudah terbuat, jalankan command berikut
+curl -H "Accept:application/json" localhost:8083/connectors/
+
+Untuk menghapus connection, jalankan command berikut
+curl -X DELETE http://localhost:8083/connectors/<connection_name>
+
+5. Cek apakah service kafka sudah berjalan, jalankan command berikut untuk melihat topic yang tersedia
+docker compose exec kafka /kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
+
+6. Test menjalankan sh script kafka consumer
+docker compose exec kafka /kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --from-beginning --property print.key=true --topic mysqldb.inventory.customers
+
+

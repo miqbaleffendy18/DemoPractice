@@ -58,8 +58,8 @@ def consume_messages(broker_server, topic, primary_key, csv_output_path, batch_s
 
         if batch_data:
             df = pd.DataFrame(batch_data.values())
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            csv_file_path = os.path.join(csv_output_path, f'cdc_output_{timestamp}.csv')
+            csv_name = topic.replace('.', '_')
+            csv_file_path = os.path.join(csv_output_path, f'{csv_name}.csv')
             df.to_csv(csv_file_path, sep=',', header=True, index=False)
             print(f"Exported data to {csv_file_path}")
 
