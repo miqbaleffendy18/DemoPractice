@@ -9,7 +9,7 @@ def export_output(df, topic, csv_output_path):
     csv_name = topic.replace('.', '_')
     csv_file_path = os.path.join(csv_output_path, f'{csv_name}.csv')
     df.to_csv(csv_file_path, sep=',', header=True, index=False)
-    print(f"Exported data to {csv_file_path}")
+    print(f'Exported data to {csv_file_path}')
 
 def consume_messages(broker_server, consumer_group, topic, primary_key, csv_output_path, batch_size=1000, wait_timeout=30):
     consumer_config = {
@@ -23,7 +23,7 @@ def consume_messages(broker_server, consumer_group, topic, primary_key, csv_outp
         consumer = Consumer(consumer_config)
         consumer.subscribe([topic])
     except KafkaException as e:
-        print(f"Failed to create consumer: {e}")
+        print(f'Failed to create consumer: {e}')
         return
 
     batch_data = {}
@@ -35,11 +35,11 @@ def consume_messages(broker_server, consumer_group, topic, primary_key, csv_outp
 
             if message:
                 if message.error():
-                    print(f"Consumer error: {message.error()}")
+                    print(f'Consumer error: {message.error()}')
                     continue
 
                 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print(f"{current_time} - Current Offset: {message.offset()}, Partition: {message.partition()}, Topic: {message.topic()}")
+                print(f'{current_time} - Current Offset: {message.offset()}, Partition: {message.partition()}, Topic: {message.topic()}')
 
                 try:
                     message_value = json.loads(message.value().decode('utf-8'))
@@ -50,14 +50,14 @@ def consume_messages(broker_server, consumer_group, topic, primary_key, csv_outp
                         primary_key_value = after_data.get(primary_key)
                         batch_data[primary_key_value] = after_data
                 except (json.JSONDecodeError, AttributeError) as e:
-                    print(f"Failed to decode message: {e}")
+                    print(f'Failed to decode message: {e}')
 
                 if len(batch_data) >= batch_size:
                     break
 
             if time.time() - start_time >= wait_timeout:
                 elapsed_time = time.time() - start_time
-                print(f"No new messages received within {elapsed_time} seconds. Exiting.")
+                print(f'No new messages received within {elapsed_time} seconds. Exiting.')
                 break
 
         if batch_data:
@@ -65,16 +65,16 @@ def consume_messages(broker_server, consumer_group, topic, primary_key, csv_outp
             export_output(df, topic, csv_output_path)
 
             consumer.commit()
-            print("Offset committed.")
+            print('Offset committed.')
         else:
-            print("No data found for specified operations.")
+            print('No data found for specified operations.')
 
     except KafkaException as e:
-        print(f"Kafka error: {e}")
+        print(f'Kafka error: {e}')
     finally:
         consumer.close()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # Parameters
     broker_server = 'localhost:9093'
     consumer_group = 'consumer_group'
