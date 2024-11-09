@@ -5,10 +5,16 @@ from datetime import datetime
 import time
 import os
 
-def consume_messages(broker_server, topic, primary_key, csv_output_path, batch_size=1000, wait_timeout=30):
+def export_output(df, topic, csv_output_path):
+    csv_name = topic.replace('.', '_')
+    csv_file_path = os.path.join(csv_output_path, f'{csv_name}.csv')
+    df.to_csv(csv_file_path, sep=',', header=True, index=False)
+    print(f"Exported data to {csv_file_path}")
+
+def consume_messages(broker_server, consumer_group, topic, primary_key, csv_output_path, batch_size=1000, wait_timeout=30):
     consumer_config = {
         'bootstrap.servers': broker_server,
-        'group.id': 'consumer_group',
+        'group.id': consumer_group,
         'auto.offset.reset': 'earliest',
         'enable.auto.commit': False
     }
@@ -56,10 +62,7 @@ def consume_messages(broker_server, topic, primary_key, csv_output_path, batch_s
 
         if batch_data:
             df = pd.DataFrame(batch_data.values())
-            csv_name = topic.replace('.', '_')
-            csv_file_path = os.path.join(csv_output_path, f'{csv_name}.csv')
-            df.to_csv(csv_file_path, sep=',', header=True, index=False)
-            print(f"Exported data to {csv_file_path}")
+            export_output(df, topic, csv_output_path)
 
             consumer.commit()
             print("Offset committed.")
@@ -73,9 +76,10 @@ def consume_messages(broker_server, topic, primary_key, csv_output_path, batch_s
 
 if __name__ == "__main__":
     # Parameters
-    broker = 'localhost:9093'
+    broker_server = 'localhost:9093'
+    consumer_group = 'consumer_group'
     topic = 'mysqldb.inventory.customers'
     primary_key = 'id'
-    csv_output_path = '/Users/m.iqbaleffendy/Documents/DemoPractice/test_debezium/data_output'
+    csv_output_path = './data_output'
 
-    consume_messages(broker, topic, primary_key, csv_output_path)
+    consume_messages(broker_server, consumer_group, topic, primary_key, csv_output_path)
