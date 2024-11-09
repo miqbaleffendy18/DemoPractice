@@ -41,10 +41,8 @@ def consume_messages(broker_server, topic, primary_key, csv_output_path, batch_s
                     op = payload.get('op')
                     if op in ('c', 'u'):
                         after_data = payload.get('after', {})
-                        if after_data:
-                            primary_key_value = after_data.get(primary_key)
-                            if primary_key_value:
-                                batch_data[primary_key_value] = after_data
+                        primary_key_value = after_data.get(primary_key)
+                        batch_data[primary_key_value] = after_data
                 except (json.JSONDecodeError, AttributeError) as e:
                     print(f"Failed to decode message: {e}")
 
@@ -73,7 +71,6 @@ def consume_messages(broker_server, topic, primary_key, csv_output_path, batch_s
     finally:
         consumer.close()
 
-# Run the consumer
 if __name__ == "__main__":
     # Parameters
     broker = 'localhost:9093'
