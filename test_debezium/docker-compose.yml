@@ -1,0 +1,80 @@
+# Based on https://debezium.io/documentation/reference/1.5/tutorial.html
+# Run as:
+#   docker-compose up
+---
+  services:
+  
+    zookeeper:
+      image: debezium/zookeeper:3.0.0.Final
+      ports:
+        - 2181:2181
+        - 2888:2888
+        - 3888:3888
+  
+    # You can list the existing topics with
+    #   docker compose exec kafka /kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
+    # After start CDC, you can consume the events using this command
+    # MySQL: 
+    #   docker compose exec kafka /kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --from-beginning --property print.key=true --topic mysqldb.inventory.customers
+    # Postgres:
+    #   docker compose exec kafka /kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --from-beginning --property print.key=true --topic postgresdb.inventory.product
+    kafka:
+      image: debezium/kafka:3.0.0.Final
+      ports:
+        - 9092:9092
+        - 9093:9093
+      environment: 
+        KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://${ADVERTISED_HOST_NAME}:9093
+        KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+        KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093
+        KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+        ZOOKEEPER_CONNECT: zookeeper:2181
+      depends_on: 
+        - zookeeper
+      links:
+        - zookeeper:zookeeper
+  
+    # docker-compose exec mysql bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'
+    mysql:
+      image: debezium/example-mysql:3.0.0.Final
+      ports: 
+        - 3306:3306
+      environment: 
+        MYSQL_ROOT_PASSWORD: debezium
+        MYSQL_USER: mysqluser
+        MYSQL_PASSWORD: mysqlpw
+    
+    # docker-compose exec postgres env PGOPTIONS="--search_path=inventory" bash -c 'psql -U $POSTGRES_USER postgres'
+    postgres:
+      image: debezium/example-postgres:3.0.0.Final
+      ports:
+        - 5432:5432
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres  
+    
+    cdc_connect:
+      image: debezium/connect:3.0.0.Final
+      ports: 
+        - 8083:8083      
+      environment: 
+        BOOTSTRAP_SERVERS: kafka:9092
+        GROUP_ID: cdc_connect_group
+        REST_PORT: 8083
+        REST_ADVERTISED_HOST_NAME: localhost
+        CONFIG_STORAGE_TOPIC: my_cdc_connect_configs
+        OFFSET_STORAGE_TOPIC: my_cdc_connect_offsets
+        STATUS_STORAGE_TOPIC: my_cdc_connect_statuses
+        CONFIG_STORAGE_REPLICATION_FACTOR: "1"
+        OFFSET_STORAGE_REPLICATION_FACTOR: "1"
+        STATUS_STORAGE_REPLICATION_FACTOR: "1"
+      depends_on: 
+        - zookeeper
+        - kafka
+        - mysql
+        - postgres
+      links:
+        - zookeeper:zookeeper
+        - kafka:kafka
+        - mysql:mysql
+        - postgres:postgres
