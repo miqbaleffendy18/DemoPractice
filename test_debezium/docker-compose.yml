@@ -11,13 +11,6 @@
         - 2888:2888
         - 3888:3888
   
-    # You can list the existing topics with
-    #   docker compose exec kafka /kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
-    # After start CDC, you can consume the events using this command
-    # MySQL: 
-    #   docker compose exec kafka /kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --from-beginning --property print.key=true --topic mysqldb.inventory.customers
-    # Postgres:
-    #   docker compose exec kafka /kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --from-beginning --property print.key=true --topic postgresdb.inventory.product
     kafka:
       image: debezium/kafka:3.0.0.Final
       ports:
@@ -34,7 +27,6 @@
       links:
         - zookeeper:zookeeper
   
-    # docker-compose exec mysql bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'
     mysql:
       image: debezium/example-mysql:3.0.0.Final
       ports: 
@@ -44,7 +36,6 @@
         MYSQL_USER: mysqluser
         MYSQL_PASSWORD: mysqlpw
     
-    # docker-compose exec postgres env PGOPTIONS="--search_path=inventory" bash -c 'psql -U $POSTGRES_USER postgres'
     postgres:
       image: debezium/example-postgres:3.0.0.Final
       ports:
