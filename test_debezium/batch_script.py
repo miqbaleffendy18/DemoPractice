@@ -12,6 +12,19 @@ def export_output(df, topic, csv_output_path):
     print(f'Exported data to {csv_file_path}')
 
 def consume_messages(broker_server, consumer_group, topic, primary_key, csv_output_path, batch_size=1000, wait_timeout=30):
+    """
+    Consume messages from a Kafka topic and exports the data to a CSV file.
+
+    Parameters:
+        broker_server (str): Address of the Kafka broker server.
+        consumer_group (str): Consumer group ID.
+        topic (str): The topic to subscribe to.
+        primary_key (str): The primary key to use for identifying records.
+        csv_output_path (str): Path where the output CSV file will be saved.
+        batch_size (int): Number of messages to batch before exporting to CSV. Defaults to 1000.
+        wait_timeout (int): Timeout in seconds to stop consuming if no messages are received. Defaults to 30.
+    """
+    
     consumer_config = {
         'bootstrap.servers': broker_server,
         'group.id': consumer_group,
