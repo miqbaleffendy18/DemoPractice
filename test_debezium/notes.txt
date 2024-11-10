@@ -46,6 +46,8 @@ docker compose exec kafka /kafka/bin/kafka-topics.sh --bootstrap-server kafka:90
 6. Test menjalankan sh script kafka consumer
 docker compose exec kafka /kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --from-beginning --property print.key=true --topic mysqldb.inventory.customers
 
+7. Jalankan script batch_script.py, sembari melakukan proses insert, update atau delete pada table yang dipilih sebagai topic
+
 N.B. Baru coba connector ke MySQL
 
 
